@@ -7,8 +7,9 @@
 
 from enum import StrEnum
 from pathlib import Path
+from urllib.parse import quote_plus
 
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # .env в корне проекта: app/core/config.py → ../../ → корень.
@@ -43,6 +44,33 @@ class AppSettings(BaseModel):
     LOGGING_LEVEL: str = "INFO"
 
 
+class DatabaseSettings(BaseModel):
+    """Настройки подключения к PostgreSQL.
+
+    Атрибуты:
+        HOST: Адрес сервера БД.
+        PORT: TCP-порт.
+        NAME: Имя БД.
+        USER: Пользователь.
+        PASSWORD: Пароль. Обязательное поле, фейлим на старте, если пусто.
+    """
+
+    HOST: str = "localhost"
+    PORT: int = 5432
+    NAME: str = "notifications"
+    USER: str = "notifications"
+    PASSWORD: str
+
+    @computed_field
+    @property
+    def url(self) -> str:
+        """Async-URL подключения для asyncpg (с URL-кодированием логина и пароля)."""
+        return (
+            f"postgresql+asyncpg://{quote_plus(self.USER)}:{quote_plus(self.PASSWORD)}"
+            f"@{self.HOST}:{self.PORT}/{self.NAME}"
+        )
+
+
 class TelegramSettings(BaseModel):
     """Настройки Telegram-бота.
 
@@ -66,10 +94,12 @@ class Settings(BaseSettings):
 
     Переменные сгруппированы префиксами с разделителем ``__``:
     - ``APP__ENV``, ``APP__HOST``, ``APP__PORT``, ``APP__LOGGING_LEVEL``
+    - ``DB__HOST``, ``DB__PORT``, ``DB__NAME``, ``DB__USER``, ``DB__PASSWORD``
     - ``TELEGRAM__TOKEN``, ``TELEGRAM__WEBHOOK_URL``, ``TELEGRAM__WEBHOOK_PATH``
 
     Атрибуты:
         app: Базовые настройки приложения.
+        db: Настройки подключения к PostgreSQL.
         telegram: Настройки Telegram-бота.
     """
 
@@ -81,6 +111,7 @@ class Settings(BaseSettings):
     )
 
     app: AppSettings = AppSettings()
+    db: DatabaseSettings
     telegram: TelegramSettings = TelegramSettings()
 
 

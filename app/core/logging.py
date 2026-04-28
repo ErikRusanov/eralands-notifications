@@ -21,9 +21,10 @@ def get_log_config() -> dict:
         "%(levelprefix)s %(asctime)s  %(name)s: %(message)s"
     )
     config["formatters"]["default"]["datefmt"] = "%Y-%m-%d %H:%M:%S"
-    config["loggers"]["app"] = {
-        "handlers": ["default"],
-        "level": settings.app.LOGGING_LEVEL,
-        "propagate": False,
-    }
+    for name in ("app", "sqlalchemy.engine", "alembic"):
+        config["loggers"][name] = {
+            "handlers": ["default"],
+            "level": settings.app.LOGGING_LEVEL,
+            "propagate": False,
+        }
     return config
