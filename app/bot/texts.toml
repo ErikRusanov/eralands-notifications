@@ -1,0 +1,14 @@
+# Тексты сообщений и описаний команд бота.
+# Загружаются классом Replies при старте сервиса.
+# Ключ messages.<key> соответствует методу Replies.<key>().
+# Ключ commands.<name> соответствует BotCommand("<name>") в utils/commands.py.
+# Поддерживается HTML-разметка (parse_mode=HTML установлен на боте глобально).
+
+[messages.start_welcome]
+text = "Привет! Это бот сервиса <b>Eralands Notifications</b>."
+
+[messages.start_welcome_named]
+text = "Привет, {name}! Это бот сервиса <b>Eralands Notifications</b>."
+
+[commands.start]
+description = "Запустить бота"

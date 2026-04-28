@@ -43,14 +43,34 @@ class AppSettings(BaseModel):
     LOGGING_LEVEL: str = "INFO"
 
 
+class TelegramSettings(BaseModel):
+    """Настройки Telegram-бота.
+
+    Атрибуты:
+        TOKEN: Bot API токен, выданный BotFather. Пустая строка отключает бота
+            на старте: webhook не регистрируется, но сервис продолжает работать.
+        WEBHOOK_URL: Публичный базовый URL сервиса (без пути), на который
+            Telegram будет слать обновления. Пустая строка пропускает регистрацию
+            вебхука у Telegram (полезно в локальной разработке без туннеля).
+        WEBHOOK_PATH: Путь, на котором смонтирован FastAPI-эндпоинт вебхука.
+            Используется при сборке итогового URL для ``set_webhook``.
+    """
+
+    TOKEN: str = ""
+    WEBHOOK_URL: str = ""
+    WEBHOOK_PATH: str = "/api/bot/webhook"
+
+
 class Settings(BaseSettings):
     """Корневой объект настроек. Читает все переменные из ``.env``.
 
     Переменные сгруппированы префиксами с разделителем ``__``:
     - ``APP__ENV``, ``APP__HOST``, ``APP__PORT``, ``APP__LOGGING_LEVEL``
+    - ``TELEGRAM__TOKEN``, ``TELEGRAM__WEBHOOK_URL``, ``TELEGRAM__WEBHOOK_PATH``
 
     Атрибуты:
         app: Базовые настройки приложения.
+        telegram: Настройки Telegram-бота.
     """
 
     model_config = SettingsConfigDict(
@@ -61,6 +81,7 @@ class Settings(BaseSettings):
     )
 
     app: AppSettings = AppSettings()
+    telegram: TelegramSettings = TelegramSettings()
 
 
 settings = Settings()
