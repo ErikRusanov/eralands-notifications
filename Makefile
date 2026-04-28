@@ -8,6 +8,7 @@ setup:
 		echo ".env already exists, skipping"; \
 	fi
 	poetry install
+	poetry run pre-commit install
 
 format:
 	poetry run ruff format .
