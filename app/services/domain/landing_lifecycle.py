@@ -15,7 +15,7 @@ from app.models import Landing
 from app.schemas import LinkingCodeResponse
 from app.services.db import LandingService, LinkingCodeService
 from app.services.domain.errors import NotFoundError
-from app.services.utils import generate_linking_code
+from app.utils import generate_linking_code
 
 
 class _LandingActivation(BaseModel):

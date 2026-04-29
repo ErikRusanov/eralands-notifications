@@ -2,9 +2,13 @@
 
 Публичный API
 -------------
-lifespan : Async context manager жизненного цикла FastAPI.
+generate_api_token : Генератор открытого API-токена лендинга.
+generate_linking_code : Генератор одноразового кода привязки.
+
+``lifespan`` импортируется напрямую из ``app.utils.lifespan``, чтобы избежать
+циклического импорта через ``app.bot`` → ``app.core`` → ``app.services``.
 """
 
-from app.utils.lifespan import lifespan
+from app.utils.tokens import generate_api_token, generate_linking_code
 
-__all__ = ["lifespan"]
+__all__ = ["generate_api_token", "generate_linking_code"]

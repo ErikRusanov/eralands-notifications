@@ -107,7 +107,7 @@ class LinkingCodeSettings(BaseModel):
     Атрибуты:
         TTL_MINUTES: Сколько минут код считается валидным после выдачи.
         LENGTH: Длина кода в символах. Алфавит фиксирован
-            в ``services/utils/tokens.py``.
+            в ``utils/tokens.py``.
     """
 
     TTL_MINUTES: int = 60

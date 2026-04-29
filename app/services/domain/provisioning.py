@@ -21,7 +21,7 @@ from app.services.db import (
     LinkingCodeService,
 )
 from app.services.domain.errors import ConflictError, NotFoundError
-from app.services.utils import generate_api_token, generate_linking_code
+from app.utils import generate_api_token, generate_linking_code
 
 
 class _LandingNew(BaseModel):
