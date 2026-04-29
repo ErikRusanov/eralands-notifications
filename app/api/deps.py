@@ -78,8 +78,9 @@ def _provisioning_service(
 def _client_lifecycle_service(
     clients: ClientServiceDep,
     landings: LandingServiceDep,
+    channels: NotificationChannelServiceDep,
 ) -> ClientLifecycleService:
-    return ClientLifecycleService(clients, landings)
+    return ClientLifecycleService(clients, landings, channels)
 
 
 def _landing_lifecycle_service(

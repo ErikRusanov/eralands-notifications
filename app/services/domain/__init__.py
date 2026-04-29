@@ -7,7 +7,10 @@ flush делает вызванный CRUD, commit делает ``get_session`` 
 в HTTP-коды в ``app.core.errors``.
 """
 
-from app.services.domain.client_lifecycle import ClientLifecycleService
+from app.services.domain.client_lifecycle import (
+    ClientLifecycleService,
+    ClientWithLandings,
+)
 from app.services.domain.errors import (
     AuthError,
     ConflictError,
@@ -25,6 +28,7 @@ from app.services.domain.routing import RoutingService
 __all__ = [
     "AuthError",
     "ClientLifecycleService",
+    "ClientWithLandings",
     "ConflictError",
     "DomainError",
     "LandingLifecycleService",

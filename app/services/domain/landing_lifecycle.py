@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from pydantic import BaseModel
 
 from app.core.config import settings
+from app.models import Landing
 from app.schemas import LinkingCodeResponse
 from app.services.db import LandingService, LinkingCodeService
 from app.services.domain.errors import NotFoundError
@@ -42,8 +43,8 @@ class LandingLifecycleService:
         self.landings = landings
         self.linking_codes = linking_codes
 
-    async def disable(self, landing_id: uuid.UUID) -> None:
-        """Отключает уведомления конкретного лендинга.
+    async def set_active(self, landing_id: uuid.UUID, is_active: bool) -> Landing:
+        """Меняет флаг активности конкретного лендинга и возвращает его.
 
         Поднимает:
             NotFoundError: Если лендинг не найден.
@@ -51,7 +52,9 @@ class LandingLifecycleService:
         landing = await self.landings.get(landing_id)
         if landing is None:
             raise NotFoundError("Landing not found.")
-        await self.landings.update(landing, _LandingActivation(is_active=False))
+        return await self.landings.update(
+            landing, _LandingActivation(is_active=is_active)
+        )
 
     async def issue_linking_code(self, landing_id: uuid.UUID) -> LinkingCodeResponse:
         """Выдаёт новый одноразовый код привязки для лендинга.

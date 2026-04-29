@@ -10,27 +10,29 @@ from app.api.deps import (
     LandingLifecycleServiceDep,
     RoutingServiceDep,
 )
-from app.schemas import LinkingCodeResponse
+from app.schemas import LandingResponse, LandingUpdate, LinkingCodeResponse
 
 router = APIRouter(prefix="/landings", tags=["Landings"], dependencies=[AdminAuth])
 
 
-@router.post(
-    "/{landing_id}/disable",
-    status_code=http_status.HTTP_204_NO_CONTENT,
-    response_class=Response,
-    summary="Отключить уведомления у конкретного лендинга",
+@router.patch(
+    "/{landing_id}",
+    response_model=LandingResponse,
+    summary="Включить или отключить лендинг",
     description=(
-        "Лендинг переходит в ``is_active=False``: заявки на него отклоняются, "
-        "доставки не создаются. Маршруты и каналы сохраняются."
+        "Меняет ``is_active`` у конкретного лендинга. При ``false`` заявки "
+        "отклоняются и доставки не создаются, но маршруты и каналы "
+        "сохраняются для быстрой реактивации."
     ),
 )
-async def disable_landing(
-    landing_id: uuid.UUID, service: LandingLifecycleServiceDep
-) -> Response:
-    """Гасит уведомления конкретного лендинга."""
-    await service.disable(landing_id)
-    return Response(status_code=http_status.HTTP_204_NO_CONTENT)
+async def update_landing(
+    landing_id: uuid.UUID,
+    data: LandingUpdate,
+    service: LandingLifecycleServiceDep,
+) -> LandingResponse:
+    """Обновляет флаг активности лендинга и возвращает свежий объект."""
+    landing = await service.set_active(landing_id, is_active=data.is_active)
+    return LandingResponse.model_validate(landing)
 
 
 @router.post(

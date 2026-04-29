@@ -23,6 +23,21 @@ class LandingService(BaseDBService[Landing]):
         stmt = select(Landing).where(Landing.api_token_hash == token_hash)
         return (await self.session.scalars(stmt)).one_or_none()
 
+    async def list_by_client_ids(self, client_ids: list[uuid.UUID]) -> list[Landing]:
+        """Возвращает лендинги для нескольких клиентов одним запросом.
+
+        Используется в админских listing-эндпоинтах, чтобы не делать
+        N+1 запрос на каждого клиента.
+        """
+        if not client_ids:
+            return []
+        stmt = (
+            select(Landing)
+            .where(Landing.client_id.in_(client_ids))
+            .order_by(Landing.client_id, Landing.created_at)
+        )
+        return list((await self.session.scalars(stmt)).all())
+
     async def set_active_by_client(self, client_id: uuid.UUID, is_active: bool) -> None:
         """Массово выставляет ``is_active`` на всех лендингах клиента.
 

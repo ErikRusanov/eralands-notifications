@@ -32,6 +32,19 @@ class LandingCreate(BaseModel):
     )
 
 
+class LandingUpdate(BaseModel):
+    """Тело запроса ``PATCH /api/landings/{landing_id}``.
+
+    Атрибуты:
+        is_active: Новое значение флага активности лендинга.
+    """
+
+    is_active: bool = Field(
+        ...,
+        description="Активен ли лендинг.",
+    )
+
+
 class LandingResponse(BaseModel):
     """Описание лендинга в API-ответах.
 
