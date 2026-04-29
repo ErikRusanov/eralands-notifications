@@ -18,3 +18,4 @@ class Commands(AbstractCommands):
     """
 
     start = BotCommand("start")
+    link = BotCommand("link")

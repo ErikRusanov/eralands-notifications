@@ -22,3 +22,19 @@ variants = [
 
 [commands.start]
 description = "Запустить бота"
+
+[commands.link]
+description = "Привязать чат к лендингу"
+
+[messages.link_prompt]
+text = "Введите одноразовый код привязки, который вам выдали"
+
+[messages.link_success]
+text = """Готово, чат привязан к лендингу <b>{landing}</b> клиента <b>{client}</b>
+Активных каналов у лендинга: {routes_count}"""
+
+[messages.link_not_found]
+text = "Не нашли такой код, проверьте ввод и попробуйте ещё раз"
+
+[messages.link_expired]
+text = "Код истёк, вам необходимо запросить новый"

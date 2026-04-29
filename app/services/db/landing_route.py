@@ -2,7 +2,7 @@
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.models import LandingRoute
 from app.services.db.base import BaseDBService
@@ -32,3 +32,19 @@ class LandingRouteService(BaseDBService[LandingRoute]):
             LandingRoute.channel_id == channel_id,
         )
         return (await self.session.scalars(stmt)).one_or_none()
+
+    async def count_active_for_landing(self, landing_id: uuid.UUID) -> int:
+        """Возвращает число активных маршрутов лендинга.
+
+        Используется в боте для ответа клиенту после успешной привязки:
+        сколько каналов сейчас получает уведомления с этого лендинга.
+        """
+        stmt = (
+            select(func.count())
+            .select_from(LandingRoute)
+            .where(
+                LandingRoute.landing_id == landing_id,
+                LandingRoute.is_active.is_(True),
+            )
+        )
+        return (await self.session.execute(stmt)).scalar_one()

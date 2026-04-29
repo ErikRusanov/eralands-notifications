@@ -20,3 +20,15 @@ class ConflictError(DomainError):
 
 class AuthError(DomainError):
     """Ошибка аутентификации или авторизации. Маппится в HTTP 401."""
+
+
+class LinkingCodeNotFoundError(NotFoundError):
+    """Кода нет в БД либо он уже погашен.
+
+    Обе ситуации сливаются в одну ветку намеренно: чтобы не подтверждать
+    клиенту, что введённый код когда-либо существовал.
+    """
+
+
+class LinkingCodeExpiredError(ConflictError):
+    """Код существует, не использован, но протух (``expires_at <= now``)."""

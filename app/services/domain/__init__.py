@@ -15,10 +15,13 @@ from app.services.domain.errors import (
     AuthError,
     ConflictError,
     DomainError,
+    LinkingCodeExpiredError,
+    LinkingCodeNotFoundError,
     NotFoundError,
 )
 from app.services.domain.landing_lifecycle import LandingLifecycleService
 from app.services.domain.lead_intake import LeadIntakeService
+from app.services.domain.linking import LinkingService, LinkResult
 from app.services.domain.provisioning import (
     ProvisionedLanding,
     ProvisioningService,
@@ -33,6 +36,10 @@ __all__ = [
     "DomainError",
     "LandingLifecycleService",
     "LeadIntakeService",
+    "LinkResult",
+    "LinkingCodeExpiredError",
+    "LinkingCodeNotFoundError",
+    "LinkingService",
     "NotFoundError",
     "ProvisionedLanding",
     "ProvisioningService",
