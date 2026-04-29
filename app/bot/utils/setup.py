@@ -43,6 +43,8 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
 
     register_handlers(dp)
 
+    await bot.set_my_commands(commands.as_telegram())
+
     if settings.telegram.WEBHOOK_URL:
         base = settings.telegram.WEBHOOK_URL.rstrip("/")
         webhook_url = f"{base}{settings.telegram.WEBHOOK_PATH}"
