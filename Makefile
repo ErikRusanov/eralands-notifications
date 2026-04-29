@@ -1,4 +1,4 @@
-.PHONY: setup format run update migration migrate db-up db-down run-vpn
+.PHONY: setup format run update migration migrate db-up db-down run-vpn test
 
 VPN_HOST ?= root@89.19.213.102
 VPN_REMOTE_PORT ?= 8000
@@ -44,3 +44,6 @@ migration:
 
 migrate:
 	poetry run alembic upgrade head
+
+test: db-up
+	poetry run pytest $(args)
