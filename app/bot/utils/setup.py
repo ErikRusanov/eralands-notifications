@@ -48,8 +48,16 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
     if settings.telegram.WEBHOOK_URL:
         base = settings.telegram.WEBHOOK_URL.rstrip("/")
         webhook_url = f"{base}{settings.telegram.WEBHOOK_PATH}"
-        await bot.set_webhook(webhook_url)
-        logger.info("Webhook set to %s", webhook_url)
+        secret = settings.telegram.WEBHOOK_SECRET or None
+        await bot.set_webhook(webhook_url, secret_token=secret)
+        if secret:
+            logger.info("Webhook set to %s (secret token enabled)", webhook_url)
+        else:
+            logger.warning(
+                "Webhook set to %s without TELEGRAM__WEBHOOK_SECRET — "
+                "anyone who learns the URL can forge updates.",
+                webhook_url,
+            )
     else:
         logger.warning(
             "TELEGRAM__WEBHOOK_URL is not set — skipping webhook registration."

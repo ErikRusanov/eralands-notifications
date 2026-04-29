@@ -4,6 +4,7 @@ from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.middleware import DbSessionMiddleware
 from app.bot.utils.commands import Commands
@@ -40,16 +41,26 @@ async def handle_link_code(
     state: FSMContext,
     replies: Replies,
     linking_service: LinkingService,
+    session: AsyncSession,
 ) -> None:
-    """Принять код от пользователя и попытаться привязать чат к лендингу."""
+    """Принять код от пользователя и попытаться привязать чат к лендингу.
+
+    Доменные ошибки ловятся внутри хендлера, чтобы ответить пользователю
+    готовой репликой. Перед ответом делаем явный ``session.rollback()``:
+    middleware иначе закоммитит всё, что успело flush'нуться до raise — а
+    инвариант здесь должен быть «ошибка для пользователя ⇒ ничего не
+    закоммичено».
+    """
     code = (message.text or "").strip().upper().replace(" ", "")
     chat_id = message.chat.id
 
     try:
         result = await linking_service.link_telegram_chat(code, chat_id)
     except LinkingCodeNotFoundError:
+        await session.rollback()
         await message.answer(replies.link_not_found())
     except LinkingCodeExpiredError:
+        await session.rollback()
         await message.answer(replies.link_expired())
     else:
         await message.answer(

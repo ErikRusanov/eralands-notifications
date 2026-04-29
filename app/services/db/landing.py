@@ -43,11 +43,15 @@ class LandingService(BaseDBService[Landing]):
 
         Делается одним UPDATE без выгрузки строк в сессию: при отказе клиента
         от услуг лендингов может быть много, и итерация в Python тут лишняя.
+        ``synchronize_session="fetch"`` форсит экспирацию уже загруженных в
+        сессию экземпляров ``Landing`` — иначе следующий ``SELECT`` мог бы
+        отдать stale ``is_active`` из identity map (``expire_on_commit=False``).
         """
         stmt = (
             update(Landing)
             .where(Landing.client_id == client_id)
             .values(is_active=is_active)
+            .execution_options(synchronize_session="fetch")
         )
         await self.session.execute(stmt)
         await self.session.flush()

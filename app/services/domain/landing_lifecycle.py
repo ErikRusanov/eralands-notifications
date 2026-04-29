@@ -6,13 +6,13 @@
 """
 
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from pydantic import BaseModel
 
 from app.core.config import settings
 from app.models import Landing
-from app.schemas import LinkingCodeResponse
 from app.services.db import LandingService, LinkingCodeService
 from app.services.domain.errors import NotFoundError
 from app.utils import generate_linking_code
@@ -28,6 +28,19 @@ class _LinkingCodeNew(BaseModel):
     """Полный набор полей для INSERT-а ``LinkingCode``."""
 
     landing_id: uuid.UUID
+    code: str
+    expires_at: datetime
+
+
+@dataclass(slots=True, frozen=True)
+class IssuedLinkingCode:
+    """Свежевыданный одноразовый код привязки.
+
+    Атрибуты:
+        code: Открытый код, который клиент введёт в боте.
+        expires_at: Момент протухания кода.
+    """
+
     code: str
     expires_at: datetime
 
@@ -56,7 +69,7 @@ class LandingLifecycleService:
             landing, _LandingActivation(is_active=is_active)
         )
 
-    async def issue_linking_code(self, landing_id: uuid.UUID) -> LinkingCodeResponse:
+    async def issue_linking_code(self, landing_id: uuid.UUID) -> IssuedLinkingCode:
         """Выдаёт новый одноразовый код привязки для лендинга.
 
         Поднимает:
@@ -77,4 +90,4 @@ class LandingLifecycleService:
                 expires_at=expires_at,
             )
         )
-        return LinkingCodeResponse(code=plain_code, expires_at=expires_at)
+        return IssuedLinkingCode(code=plain_code, expires_at=expires_at)

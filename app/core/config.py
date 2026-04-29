@@ -82,11 +82,19 @@ class TelegramSettings(BaseModel):
             вебхука у Telegram (полезно в локальной разработке без туннеля).
         WEBHOOK_PATH: Путь, на котором смонтирован FastAPI-эндпоинт вебхука.
             Используется при сборке итогового URL для ``set_webhook``.
+        WEBHOOK_SECRET: Секрет, который ``set_webhook`` отдаёт Telegram'у; тот
+            возвращает его в каждом обновлении заголовком
+            ``X-Telegram-Bot-Api-Secret-Token``. Если задан, эндпоинт вебхука
+            обязан совпадение проверять — иначе любой, кто узнает URL, может
+            слать поддельные обновления. Допустимый алфавит — ``[A-Za-z0-9_-]``,
+            длина 1–256 символов. Пустая строка отключает проверку (только для
+            локальной разработки).
     """
 
     TOKEN: str = ""
     WEBHOOK_URL: str = ""
     WEBHOOK_PATH: str = "/api/bot/webhook"
+    WEBHOOK_SECRET: str = ""
 
 
 class ApiSettings(BaseModel):
@@ -120,7 +128,8 @@ class Settings(BaseSettings):
     Переменные сгруппированы префиксами с разделителем ``__``:
     - ``APP__ENV``, ``APP__HOST``, ``APP__PORT``, ``APP__LOGGING_LEVEL``
     - ``DB__HOST``, ``DB__PORT``, ``DB__NAME``, ``DB__USER``, ``DB__PASSWORD``
-    - ``TELEGRAM__TOKEN``, ``TELEGRAM__WEBHOOK_URL``, ``TELEGRAM__WEBHOOK_PATH``
+    - ``TELEGRAM__TOKEN``, ``TELEGRAM__WEBHOOK_URL``, ``TELEGRAM__WEBHOOK_PATH``,
+      ``TELEGRAM__WEBHOOK_SECRET``
     - ``API__KEY``
     - ``LINKING_CODE__TTL_MINUTES``, ``LINKING_CODE__LENGTH``
 

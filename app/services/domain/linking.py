@@ -136,8 +136,18 @@ class LinkingService:
         if lc.expires_at <= now:
             raise LinkingCodeExpiredError("Linking code expired.")
 
+        # Штатно лендинг и клиент не могут пропасть «под кодом»: FK от
+        # LinkingCode к Landing и от Landing к Client каскадные. Но на гонку
+        # с конкурентным DELETE в той же транзакции БД полагаться не стоит —
+        # без guard'а упадёт AttributeError → 500. Семантически отсутствующий
+        # лендинг/клиент означает, что код больше ни к чему не привязан, так
+        # что отдаём «not found».
         landing = await self.landings.get(lc.landing_id)
+        if landing is None:
+            raise LinkingCodeNotFoundError("Linking code not found.")
         client = await self.clients.get(landing.client_id)
+        if client is None:
+            raise LinkingCodeNotFoundError("Linking code not found.")
 
         channel, _created = await self.channels.get_or_create(
             _ChannelNew(

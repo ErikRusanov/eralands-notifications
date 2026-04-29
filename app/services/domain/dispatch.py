@@ -1,4 +1,4 @@
-"""dispatch — синхронная отправка свежесозданных доставок в каналы клиента.
+"""dispatch — инлайн-отправка свежесозданных доставок в каналы клиента.
 
 Закрывает второй шаг бизнес-кейса 5: после ``LeadIntakeService`` создал
 ``Delivery`` в ``pending`` для каждого активного маршрута, ``DispatchService``
@@ -8,8 +8,10 @@
 - ошибка → ``status=failed``, ``last_error=<message>``
 
 Каждый канал на своей корутине, поэтому ``send_message`` не блокирует event
-loop, и сбой одного канала не валит остальные. Транзакцию закрывает
-``get_session`` — мы только мутируем attached ORM-объекты.
+loop, и сбой одного канала не валит остальные. Отправка идёт инлайн в
+рамках того же запроса, что и приём лида — отдельного воркера нет.
+Транзакцию закрывает ``get_session`` — мы только мутируем attached
+ORM-объекты.
 """
 
 import asyncio
@@ -78,18 +80,40 @@ class DispatchService:
             payload=lead.payload,
         )
 
-        # return_exceptions=True страхует от непредусмотренных рейзов в одной
-        # из корутин: каждая ветка уже ловит Exception и пишет в last_error,
-        # но если произойдёт что-то совсем неожиданное (например, KeyError при
-        # поиске канала), остальные доставки всё равно получат свою попытку.
+        # Если канал успели удалить между созданием Delivery и dispatch'ем,
+        # помечаем доставку failed сразу и не запускаем для неё корутину:
+        # иначе KeyError в генераторе вылетел бы синхронно (до gather) и
+        # обвалил бы весь запрос вместе с остальными доставками.
+        matched: list[tuple[Delivery, NotificationChannel]] = []
+        for delivery in deliveries:
+            channel = channels_by_id.get(delivery.channel_id)
+            if channel is None:
+                delivery.attempts += 1
+                delivery.status = DeliveryStatus.FAILED
+                delivery.last_error = "Channel not found"
+                logger.warning(
+                    "Channel not found for delivery=%s channel_id=%s",
+                    delivery.id,
+                    delivery.channel_id,
+                )
+                continue
+            matched.append((delivery, channel))
+
+        if not matched:
+            return
+
+        # return_exceptions=True страхует от непредусмотренных рейзов внутри
+        # _dispatch_one: каждая ветка уже ловит Exception и пишет last_error,
+        # но если что-то совсем неожиданное всплывёт, остальные доставки всё
+        # равно получат свою попытку.
         results = await asyncio.gather(
             *(
-                self._dispatch_one(delivery, channels_by_id[delivery.channel_id], text)
-                for delivery in deliveries
+                self._dispatch_one(delivery, channel, text)
+                for delivery, channel in matched
             ),
             return_exceptions=True,
         )
-        for delivery, result in zip(deliveries, results, strict=True):
+        for (delivery, _), result in zip(matched, results, strict=True):
             if isinstance(result, BaseException):
                 delivery.status = DeliveryStatus.FAILED
                 delivery.last_error = str(result)[:_LAST_ERROR_MAX_LEN]

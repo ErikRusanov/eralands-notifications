@@ -1,5 +1,6 @@
 """deps — зависимости FastAPI: сессия, CRUD-сервисы, доменные сервисы, auth."""
 
+import secrets
 from collections.abc import Callable
 from typing import Annotated, TypeVar
 
@@ -150,7 +151,7 @@ def verify_admin_token(creds: _BearerDep) -> None:
     Поднимает:
         AuthError: Если заголовок отсутствует или токен не совпадает.
     """
-    if creds is None or creds.credentials != settings.api.KEY:
+    if creds is None or not secrets.compare_digest(creds.credentials, settings.api.KEY):
         raise AuthError("Invalid admin credentials.")
 
 
@@ -160,8 +161,12 @@ async def get_landing_from_token(
 ) -> Landing:
     """Резолвит лендинг по api-токену из заголовка ``Authorization: Bearer``.
 
+    Активность лендинга здесь не проверяется: бизнес-решение «принимать ли
+    лиды» лежит в ``LeadIntakeService`` (он же отдаёт 409 для отключённого
+    лендинга), а зависимость отвечает только за идентификацию.
+
     Поднимает:
-        AuthError: Если заголовка нет, токен не найден или лендинг отключён.
+        AuthError: Если заголовка нет или токен не найден.
     """
     if creds is None:
         raise AuthError("Missing API token.")

@@ -1,9 +1,15 @@
 """db — мидлвара, инжектит ``LinkingService`` на готовой async-сессии.
 
 Открывает одну сессию на одно сообщение, собирает доменный сервис через
-``LinkingService.from_session`` и инжектит его в ``data`` под ключом
-``linking_service``. Коммитит при успешном возврате хендлера, откатывает
-при исключении — симметрично HTTP-зависимости ``get_session``.
+``LinkingService.from_session`` и инжектит в ``data``:
+
+- ``linking_service`` — собранный сервис
+- ``session`` — та же ``AsyncSession``, чтобы хендлер мог явно сделать
+  ``rollback`` при пойманной доменной ошибке (когда нужно ответить
+  пользователю, но не коммитить partial-state)
+
+Коммитит при успешном возврате хендлера, откатывает при пробросе
+исключения — симметрично HTTP-зависимости ``get_session``.
 
 Подключается точечно к роутеру, которому нужна БД (см. ``handlers.commands.link``),
 а не глобально на ``Dispatcher``: иначе сессия открывалась бы для каждого
@@ -31,6 +37,7 @@ class DbSessionMiddleware(BaseMiddleware):
     ) -> Any:
         """Обернуть вызов хендлера в одну транзакцию БД."""
         async with async_session_maker() as session:
+            data["session"] = session
             data["linking_service"] = LinkingService.from_session(session)
             try:
                 result = await handler(event, data)

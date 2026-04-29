@@ -19,6 +19,7 @@ from typing import ClassVar, Generic, TypeVar
 
 from pydantic import BaseModel as PydanticModel
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.base import BaseModel as ORMModel
@@ -74,16 +75,26 @@ class BaseDBService(Generic[ModelT]):
         """Возвращает существующий объект по полям ``by`` либо создаёт новый.
 
         Поиск ведётся по подмножеству полей схемы, перечисленных в ``by``.
-        Если объект не найден, создаётся новый из всех полей схемы
-        (``model_dump()``).
+        Если объект не найден, выполняется ``INSERT … ON CONFLICT DO NOTHING``
+        с конфликт-таргетом по тем же полям, после чего объект гарантированно
+        перечитывается ``SELECT``-ом. Это закрывает гонку: при одновременном
+        вызове двух транзакций обе увидят ``None`` в первом ``SELECT``, но
+        вторая попытка ``INSERT`` тихо скипнется и не уронит запрос на
+        ``IntegrityError``.
+
+        Поля, перечисленные в ``by``, должны соответствовать колонкам
+        уникального индекса/констрейнта на таблице — иначе конфликт-таргет
+        не сработает и ``IntegrityError`` всё равно прилетит.
 
         Аргументы:
             data: Pydantic-схема с данными для поиска и/или создания.
-            by: Имена полей схемы, по которым ведётся поиск существующей записи.
+            by: Имена полей схемы, по которым ведётся поиск существующей
+                записи и которые покрыты уникальным индексом.
 
         Возвращает:
             Кортеж ``(instance, created)``, где ``created=True``, если объект
-            был создан, и ``False``, если найден существующий.
+            был создан этим вызовом, и ``False``, если найден существующий
+            или вставку перехватила параллельная транзакция.
         """
         lookup = {field: getattr(data, field) for field in by}
         stmt = select(self.model).filter_by(**lookup)
@@ -91,10 +102,17 @@ class BaseDBService(Generic[ModelT]):
         if instance is not None:
             return instance, False
 
-        instance = self.model(**data.model_dump())
-        self.session.add(instance)
-        await self.session.flush()
-        return instance, True
+        insert_stmt = (
+            pg_insert(self.model)
+            .values(**data.model_dump())
+            .on_conflict_do_nothing(index_elements=list(by))
+            .returning(self.model.id)
+        )
+        inserted_id = (await self.session.execute(insert_stmt)).scalar_one_or_none()
+
+        stmt = select(self.model).filter_by(**lookup)
+        instance = (await self.session.scalars(stmt)).one()
+        return instance, inserted_id is not None
 
     async def update(self, instance: ModelT, data: PydanticModel) -> ModelT:
         """Обновляет поля ``instance`` значениями из ``data``.

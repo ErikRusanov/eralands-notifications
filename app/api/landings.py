@@ -50,7 +50,8 @@ async def issue_linking_code(
     landing_id: uuid.UUID, service: LandingLifecycleServiceDep
 ) -> LinkingCodeResponse:
     """Возвращает свежий одноразовый код привязки для лендинга."""
-    return await service.issue_linking_code(landing_id)
+    issued = await service.issue_linking_code(landing_id)
+    return LinkingCodeResponse(code=issued.code, expires_at=issued.expires_at)
 
 
 @router.delete(
