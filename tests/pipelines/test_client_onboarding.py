@@ -18,6 +18,7 @@ from app.models import (
     NotificationChannel,
 )
 from app.services.domain import LinkingService
+from tests.conftest import FakeBot
 
 log = logging.getLogger("pipeline")
 
@@ -26,6 +27,7 @@ async def test_onboarding_through_first_lead(
     client: AsyncClient,
     session: AsyncSession,
     admin_headers: dict[str, str],
+    fake_bot: FakeBot,
 ) -> None:
     log.info("→ Era Lands заводит нового клиента «ООО Ромашка»")
     resp = await client.post(
@@ -82,7 +84,7 @@ async def test_onboarding_through_first_lead(
     lead_id = resp.json()["id"]
     log.info("  заявка принята, lead_id=%s", lead_id)
 
-    log.info("→ Проверяем, что в БД лежит лид и доставка в pending")
+    log.info("→ Проверяем, что в БД лежит лид и доставка отправлена")
     lead = await session.get(Lead, lead_id)
     assert lead is not None
     assert lead.landing_id.hex == landing_id.replace("-", "")
@@ -95,8 +97,10 @@ async def test_onboarding_through_first_lead(
     )
     assert len(deliveries) == 1
     delivery = deliveries[0]
-    assert delivery.status == DeliveryStatus.PENDING
-    assert delivery.attempts == 0
+    assert delivery.status == DeliveryStatus.SENT
+    assert delivery.attempts == 1
+    assert delivery.sent_at is not None
+    assert delivery.last_error is None
 
     channel = await session.get(NotificationChannel, delivery.channel_id)
     assert channel is not None
@@ -109,3 +113,11 @@ async def test_onboarding_through_first_lead(
         delivery.status.value,
         channel.address,
     )
+
+    log.info("→ В Telegram ушло одно сообщение в этот чат с реальным payload-ом")
+    assert len(fake_bot.calls) == 1
+    sent = fake_bot.calls[0]
+    assert sent["chat_id"] == chat_id
+    assert "Кровля под ключ — Москва" in sent["text"]
+    assert "Иван" in sent["text"]
+    assert "+7-999-000-00-00" in sent["text"]

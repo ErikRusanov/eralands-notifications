@@ -1,9 +1,10 @@
 """lead_intake — приём заявки с лендинга и fan-out по каналам.
 
 Закрывает бизнес-кейс 5: по api-токену лендинга прилетает заявка со
-свободным payload-ом. Сервис создаёт ``Lead`` и для каждого активного
-маршрута лендинга создаёт ``Delivery`` в статусе ``pending``. Сама
-отправка в канал — задача воркера, который пока не реализован.
+свободным payload-ом. Сервис создаёт ``Lead``, для каждого активного
+маршрута лендинга создаёт ``Delivery`` в статусе ``pending`` и тут же
+передаёт пачку в ``DispatchService``, который параллельно отправляет
+сообщения в каналы и переводит доставки в ``sent``/``failed``.
 """
 
 import uuid
@@ -11,12 +12,13 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from app.models import Landing, Lead
+from app.models import Delivery, Landing, Lead
 from app.services.db import (
     DeliveryService,
     LandingRouteService,
     LeadService,
 )
+from app.services.domain.dispatch import DispatchService
 from app.services.domain.errors import ConflictError
 
 
@@ -36,17 +38,19 @@ class _DeliveryNew(BaseModel):
 
 
 class LeadIntakeService:
-    """Приём заявки и фан-аут доставок по активным маршрутам."""
+    """Приём заявки, фан-аут доставок по активным маршрутам и их отправка."""
 
     def __init__(
         self,
         leads: LeadService,
         routes: LandingRouteService,
         deliveries: DeliveryService,
+        dispatch: DispatchService,
     ) -> None:
         self.leads = leads
         self.routes = routes
         self.deliveries = deliveries
+        self.dispatch = dispatch
 
     async def accept(
         self,
@@ -54,7 +58,7 @@ class LeadIntakeService:
         payload: dict[str, Any],
         source_meta: dict[str, Any],
     ) -> Lead:
-        """Создаёт лид и доставки в статусе ``pending``.
+        """Создаёт лид, доставки в ``pending`` и параллельно их отправляет.
 
         Аргументы:
             landing: Лендинг, который аутентифицировал запрос. Должен быть
@@ -77,9 +81,12 @@ class LeadIntakeService:
         )
 
         active_routes = await self.routes.list_active_for_landing(landing.id)
+        created: list[Delivery] = []
         for route in active_routes:
-            await self.deliveries.create(
+            delivery = await self.deliveries.create(
                 _DeliveryNew(lead_id=lead.id, channel_id=route.channel_id)
             )
-        # TODO(worker): дёргать воркер на отправку pending-доставок.
+            created.append(delivery)
+
+        await self.dispatch.dispatch_lead(landing, lead, created)
         return lead

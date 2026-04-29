@@ -3,10 +3,12 @@
 from collections.abc import Callable
 from typing import Annotated, TypeVar
 
-from fastapi import Depends
+from aiogram import Bot
+from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.utils.replies import Replies
 from app.core.config import settings
 from app.core.security import hash_api_token
 from app.core.session import get_session
@@ -24,6 +26,7 @@ from app.services.db import (
 from app.services.domain import (
     AuthError,
     ClientLifecycleService,
+    DispatchService,
     LandingLifecycleService,
     LeadIntakeService,
     ProvisioningService,
@@ -94,12 +97,36 @@ def _routing_service(routes: LandingRouteServiceDep) -> RoutingService:
     return RoutingService(routes)
 
 
+def _bot_dep(request: Request) -> Bot:
+    return request.app.state.bot
+
+
+def _replies_dep(request: Request) -> Replies:
+    return request.app.state.replies
+
+
+BotDep = Annotated[Bot, Depends(_bot_dep)]
+RepliesDep = Annotated[Replies, Depends(_replies_dep)]
+
+
+def _dispatch_service(
+    bot: BotDep,
+    channels: NotificationChannelServiceDep,
+    replies: RepliesDep,
+) -> DispatchService:
+    return DispatchService(bot, channels, replies)
+
+
+DispatchServiceDep = Annotated[DispatchService, Depends(_dispatch_service)]
+
+
 def _lead_intake_service(
     leads: LeadServiceDep,
     routes: LandingRouteServiceDep,
     deliveries: DeliveryServiceDep,
+    dispatch: DispatchServiceDep,
 ) -> LeadIntakeService:
-    return LeadIntakeService(leads, routes, deliveries)
+    return LeadIntakeService(leads, routes, deliveries, dispatch)
 
 
 ProvisioningServiceDep = Annotated[ProvisioningService, Depends(_provisioning_service)]

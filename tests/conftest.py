@@ -17,6 +17,7 @@ import asyncio  # noqa: E402
 import logging  # noqa: E402
 from collections.abc import AsyncIterator  # noqa: E402
 from pathlib import Path  # noqa: E402
+from typing import Any  # noqa: E402
 
 import asyncpg  # noqa: E402
 import pytest  # noqa: E402
@@ -33,12 +34,38 @@ from sqlalchemy.pool import NullPool  # noqa: E402
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
 from app.api import router as api_router  # noqa: E402
+from app.bot.utils.replies import Replies  # noqa: E402
 from app.core.config import settings  # noqa: E402
 from app.core.errors import register_exception_handlers  # noqa: E402
 from app.core.session import get_session  # noqa: E402
 from app.models import Base  # noqa: E402
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+class FakeBot:
+    """Заглушка ``aiogram.Bot.send_message`` для пайплайн-тестов.
+
+    Накапливает вызовы ``send_message`` в ``calls``. Чтобы в тесте проверить
+    failure-ветку доставки, можно положить ``chat_id`` в ``fail_chat_ids`` —
+    отправка в этот чат бросит ``RuntimeError``, который ``DispatchService``
+    поймает и переведёт ``Delivery`` в ``failed``.
+    """
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+        self.fail_chat_ids: set[int] = set()
+        self.fail_message: str = "forced telegram failure"
+
+    async def send_message(
+        self,
+        chat_id: int,
+        text: str,
+        **_: Any,
+    ) -> None:
+        if chat_id in self.fail_chat_ids:
+            raise RuntimeError(self.fail_message)
+        self.calls.append({"chat_id": chat_id, "text": text})
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -64,12 +91,16 @@ def pytest_configure(config: pytest.Config) -> None:
         logging.getLogger("pipeline").setLevel(logging.INFO)
 
 
-def _build_test_app(session_override) -> FastAPI:
-    """Собрать FastAPI без lifespan, без бота и без LoggingMiddleware.
+def _build_test_app(session_override, fake_bot: FakeBot) -> FastAPI:
+    """Собрать FastAPI без lifespan, без реального бота и без LoggingMiddleware.
 
-    - Бот не поднимаем: для админских и lead-эндпоинтов он не нужен, а
-      ``setup_bot`` без валидного TELEGRAM_TOKEN роняет старт. Линковка чата
-      в тестах проверяется прямым вызовом ``LinkingService.from_session``.
+    - Реального ``aiogram.Bot`` не поднимаем: ``setup_bot`` без валидного
+      TELEGRAM_TOKEN роняет старт, и Telegram API в тестах не дёргаем. Вместо
+      бота в ``app.state.bot`` кладём ``FakeBot``, который ``DispatchService``
+      использует так же, как и настоящего бота. Линковка чата проверяется
+      прямым вызовом ``LinkingService.from_session``.
+    - ``Replies`` — реальный, читает ``texts.toml`` один раз. Это позволяет
+      пайплайну ассертить итоговый текст уведомления.
     - LoggingMiddleware (Starlette ``BaseHTTPMiddleware``) исключён: в связке
       с ``ASGITransport`` он создаёт TaskGroup в собственном loop, и asyncpg
       падает с «attached to a different loop». В проде с uvicorn проблема
@@ -81,6 +112,8 @@ def _build_test_app(session_override) -> FastAPI:
     register_exception_handlers(app)
     app.include_router(api_router)
     app.dependency_overrides[get_session] = session_override
+    app.state.bot = fake_bot
+    app.state.replies = Replies()
     return app
 
 
@@ -154,7 +187,13 @@ async def _clean_database(_test_engine) -> None:
 
 
 @pytest.fixture
-def app(_test_session_maker) -> FastAPI:
+def fake_bot() -> FakeBot:
+    """Per-test ``FakeBot``, доступный и в фикстуре ``app``, и в самом тесте."""
+    return FakeBot()
+
+
+@pytest.fixture
+def app(_test_session_maker, fake_bot: FakeBot) -> FastAPI:
     async def _override() -> AsyncIterator[AsyncSession]:
         async with _test_session_maker() as session:
             try:
@@ -165,7 +204,7 @@ def app(_test_session_maker) -> FastAPI:
             else:
                 await session.commit()
 
-    return _build_test_app(_override)
+    return _build_test_app(_override, fake_bot)
 
 
 @pytest.fixture

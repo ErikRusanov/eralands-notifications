@@ -18,6 +18,7 @@ from app.models import (
     NotificationChannel,
 )
 from app.services.domain import LinkingService
+from tests.conftest import FakeBot
 
 log = logging.getLogger("pipeline")
 
@@ -26,6 +27,7 @@ async def test_second_employee_attached_to_same_landing(
     client: AsyncClient,
     session: AsyncSession,
     admin_headers: dict[str, str],
+    fake_bot: FakeBot,
 ) -> None:
     log.info("→ Era Lands заводит клиента «ООО Кровельщики» с лендингом")
     resp = await client.post(
@@ -88,7 +90,9 @@ async def test_second_employee_attached_to_same_landing(
         .all()
     )
     assert len(deliveries) == 2
-    assert all(d.status == DeliveryStatus.PENDING for d in deliveries)
+    assert all(d.status == DeliveryStatus.SENT for d in deliveries)
+    assert all(d.attempts == 1 for d in deliveries)
+    assert all(d.sent_at is not None for d in deliveries)
 
     channels = (
         (
@@ -106,3 +110,8 @@ async def test_second_employee_attached_to_same_landing(
     assert all(c.type == ChannelType.TELEGRAM for c in channels)
     assert all(c.is_active for c in channels)
     log.info("  каналы: %s", addresses)
+
+    log.info("→ В Telegram ушло два сообщения, по одному в каждый чат")
+    sent_chat_ids = sorted(call["chat_id"] for call in fake_bot.calls)
+    assert sent_chat_ids == [owner_chat, employee_chat]
+    assert all("Пётр" in call["text"] for call in fake_bot.calls)

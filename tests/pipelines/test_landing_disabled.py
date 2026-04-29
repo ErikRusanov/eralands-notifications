@@ -11,8 +11,9 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Delivery, Lead, NotificationChannel
+from app.models import Delivery, DeliveryStatus, Lead, NotificationChannel
 from app.services.domain import LinkingService
+from tests.conftest import FakeBot
 
 log = logging.getLogger("pipeline")
 
@@ -21,6 +22,7 @@ async def test_only_target_landing_stops_accepting_leads(
     client: AsyncClient,
     session: AsyncSession,
     admin_headers: dict[str, str],
+    fake_bot: FakeBot,
 ) -> None:
     log.info("→ Era Lands заводит клиента с двумя лендингами")
     resp = await client.post(
@@ -101,8 +103,13 @@ async def test_only_target_landing_stops_accepting_leads(
         .all()
     )
     assert len(deliveries) == 1
+    assert deliveries[0].status == DeliveryStatus.SENT
 
     channel = await session.get(NotificationChannel, deliveries[0].channel_id)
     assert channel is not None
     assert channel.address == str(neighbour["chat"])
     log.info("  доставка пошла в канал=%s", channel.address)
+
+    log.info("→ Только сосед получил сообщение, target в Telegram не дёргался")
+    sent_chat_ids = [call["chat_id"] for call in fake_bot.calls]
+    assert sent_chat_ids == [neighbour["chat"]]

@@ -11,6 +11,7 @@ from app.services.domain.client_lifecycle import (
     ClientLifecycleService,
     ClientWithLandings,
 )
+from app.services.domain.dispatch import DispatchService
 from app.services.domain.errors import (
     AuthError,
     ConflictError,
@@ -33,6 +34,7 @@ __all__ = [
     "ClientLifecycleService",
     "ClientWithLandings",
     "ConflictError",
+    "DispatchService",
     "DomainError",
     "LandingLifecycleService",
     "LeadIntakeService",

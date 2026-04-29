@@ -1,6 +1,9 @@
 """replies — конкретная фабрика ответов бота."""
 
 import random
+from typing import Any
+
+from aiogram.utils.text_decorations import html_decoration
 
 from app.bot.abstracts import AbstractReplies
 
@@ -60,6 +63,31 @@ class Replies(AbstractReplies):
     def link_expired(self) -> str:
         """Ответ когда код существует, не использован, но протух."""
         return self._msg("link_expired")
+
+    def lead_notification(self, *, landing: str, payload: dict[str, Any]) -> str:
+        """Сформировать уведомление о новой заявке для отправки в канал клиента.
+
+        Шаблон ``[messages.lead_notification]`` ожидает плейсхолдеры
+        ``{landing}`` и ``{fields}``. Поля payload собираются в
+        ``<b>key:</b> value``-строки. И заголовок, и каждое поле проходят
+        через HTML-quote, чтобы пользовательский ввод не ломал разметку.
+
+        Аргументы:
+            landing: Имя лендинга (``Landing.name``).
+            payload: Свободный JSON-payload формы.
+
+        Возвращает:
+            HTML-строка для ``Bot.send_message``.
+        """
+        fields = "\n".join(
+            f"<b>{html_decoration.quote(str(key))}:</b> "
+            f"{html_decoration.quote(str(value))}"
+            for key, value in payload.items()
+        )
+        return self._msg("lead_notification").format(
+            **self._escape(landing=landing),
+            fields=fields,
+        )
 
     def echo(self) -> str:
         """Вернуть случайную заглушку-ответ на любое сообщение пользователя.

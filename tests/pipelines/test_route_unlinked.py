@@ -11,8 +11,9 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Delivery, NotificationChannel
+from app.models import Delivery, DeliveryStatus, NotificationChannel
 from app.services.domain import LinkingService
+from tests.conftest import FakeBot
 
 log = logging.getLogger("pipeline")
 
@@ -21,6 +22,7 @@ async def test_unlinked_route_drops_out_of_fanout(
     client: AsyncClient,
     session: AsyncSession,
     admin_headers: dict[str, str],
+    fake_bot: FakeBot,
 ) -> None:
     log.info("→ Era Lands заводит клиента с лендингом и двумя каналами")
     resp = await client.post(
@@ -112,6 +114,7 @@ async def test_unlinked_route_drops_out_of_fanout(
         .all()
     )
     assert len(second_deliveries) == 1
+    assert second_deliveries[0].status == DeliveryStatus.SENT
     delivery_channel = await session.get(
         NotificationChannel, second_deliveries[0].channel_id
     )
@@ -122,3 +125,8 @@ async def test_unlinked_route_drops_out_of_fanout(
     employee_channel = await session.get(NotificationChannel, employee_channel_id)
     assert employee_channel is not None
     assert employee_channel.is_active is True
+
+    log.info("→ В Telegram прошли три сообщения: 2 на первый лид, 1 на второй")
+    sent_chat_ids = [call["chat_id"] for call in fake_bot.calls]
+    assert sorted(sent_chat_ids[:2]) == sorted([owner_chat, employee_chat])
+    assert sent_chat_ids[2] == owner_chat

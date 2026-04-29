@@ -7,7 +7,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy import text
 
-from app.bot.utils import setup_bot, teardown_bot
 from app.core.session import engine
 
 logger = logging.getLogger(__name__)
@@ -28,6 +27,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     Yields:
         None: Передаёт управление приложению между фазами старта и остановки.
     """
+    # Отложенный импорт: на module-import-time он создал бы цикл
+    # app.api.deps -> app.bot.utils -> app.core.config -> app.core.__init__
+    # -> app.core.get_app -> app.utils.lifespan -> app.bot.utils.
+    from app.bot.utils import setup_bot, teardown_bot
+
     logger.info("Backend starting up.")
     async with engine.connect() as conn:
         await conn.execute(text("SELECT 1"))
@@ -35,6 +39,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     bot, dp = await setup_bot()
     app.state.bot = bot
     app.state.dp = dp
+    app.state.replies = dp["replies"]
     try:
         yield
     finally:

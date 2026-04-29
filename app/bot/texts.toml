@@ -38,3 +38,8 @@ text = "Не нашли такой код, проверьте ввод и поп
 
 [messages.link_expired]
 text = "Код истёк, вам необходимо запросить новый"
+
+[messages.lead_notification]
+text = """🔔 Новая заявка с лендинга <b>{landing}</b>
+
+{fields}"""

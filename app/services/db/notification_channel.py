@@ -1,6 +1,7 @@
 """notification_channel — CRUD-сервис для модели ``NotificationChannel``."""
 
 import uuid
+from collections.abc import Iterable
 
 from sqlalchemy import select
 
@@ -20,4 +21,17 @@ class NotificationChannelService(BaseDBService[NotificationChannel]):
             .where(NotificationChannel.client_id == client_id)
             .order_by(NotificationChannel.created_at)
         )
+        return list((await self.session.scalars(stmt)).all())
+
+    async def list_by_ids(self, ids: Iterable[uuid.UUID]) -> list[NotificationChannel]:
+        """Возвращает каналы по списку идентификаторов (одним SELECT-ом).
+
+        Используется при fan-out отправки лида: набор каналов известен по
+        свежесозданным ``Delivery``, и подгрузка одним запросом избавляет от
+        N+1 на стороне ``DispatchService``.
+        """
+        ids_list = list({*ids})
+        if not ids_list:
+            return []
+        stmt = select(NotificationChannel).where(NotificationChannel.id.in_(ids_list))
         return list((await self.session.scalars(stmt)).all())
