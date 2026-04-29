@@ -89,6 +89,31 @@ class TelegramSettings(BaseModel):
     WEBHOOK_PATH: str = "/api/bot/webhook"
 
 
+class ApiSettings(BaseModel):
+    """Настройки административной аутентификации API.
+
+    Атрибуты:
+        KEY: Bearer-ключ для эндпоинтов управления клиентами и лендингами.
+            Обязательное поле, фейлим на старте, если пусто, чтобы случайно не
+            открыть админку публично.
+    """
+
+    KEY: str
+
+
+class LinkingCodeSettings(BaseModel):
+    """Настройки одноразовых кодов привязки.
+
+    Атрибуты:
+        TTL_MINUTES: Сколько минут код считается валидным после выдачи.
+        LENGTH: Длина кода в символах. Алфавит фиксирован
+            в ``services/utils/tokens.py``.
+    """
+
+    TTL_MINUTES: int = 60
+    LENGTH: int = 8
+
+
 class Settings(BaseSettings):
     """Корневой объект настроек. Читает все переменные из ``.env``.
 
@@ -96,11 +121,15 @@ class Settings(BaseSettings):
     - ``APP__ENV``, ``APP__HOST``, ``APP__PORT``, ``APP__LOGGING_LEVEL``
     - ``DB__HOST``, ``DB__PORT``, ``DB__NAME``, ``DB__USER``, ``DB__PASSWORD``
     - ``TELEGRAM__TOKEN``, ``TELEGRAM__WEBHOOK_URL``, ``TELEGRAM__WEBHOOK_PATH``
+    - ``API__KEY``
+    - ``LINKING_CODE__TTL_MINUTES``, ``LINKING_CODE__LENGTH``
 
     Атрибуты:
         app: Базовые настройки приложения.
         db: Настройки подключения к PostgreSQL.
         telegram: Настройки Telegram-бота.
+        api: Настройки админской аутентификации.
+        linking_code: Настройки одноразовых кодов привязки.
     """
 
     model_config = SettingsConfigDict(
@@ -113,6 +142,8 @@ class Settings(BaseSettings):
     app: AppSettings = AppSettings()
     db: DatabaseSettings
     telegram: TelegramSettings = TelegramSettings()
+    api: ApiSettings
+    linking_code: LinkingCodeSettings = LinkingCodeSettings()
 
 
 settings = Settings()

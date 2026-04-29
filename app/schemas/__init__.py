@@ -1,12 +1,25 @@
-"""schemas — Pydantic-схемы запросов и ответов API.
+"""schemas — Pydantic-схемы запросов и ответов API."""
 
-Публичный API
--------------
-ErrorResponse  : Унифицированное тело ошибки для всех обработчиков исключений.
-HealthResponse : Тело ответа health-check эндпоинта.
-"""
-
+from app.schemas.client import ClientCreate, ClientResponse
 from app.schemas.error import ErrorResponse
 from app.schemas.health import HealthResponse
+from app.schemas.landing import (
+    LandingCreate,
+    LandingResponse,
+    ProvisionedLandingResponse,
+)
+from app.schemas.lead import LeadAcceptedResponse, LeadCreate
+from app.schemas.linking_code import LinkingCodeResponse
 
-__all__ = ["ErrorResponse", "HealthResponse"]
+__all__ = [
+    "ClientCreate",
+    "ClientResponse",
+    "ErrorResponse",
+    "HealthResponse",
+    "LandingCreate",
+    "LandingResponse",
+    "LeadAcceptedResponse",
+    "LeadCreate",
+    "LinkingCodeResponse",
+    "ProvisionedLandingResponse",
+]

@@ -18,10 +18,20 @@ async_session_maker: async_sessionmaker[AsyncSession] = async_sessionmaker(
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """Открывает async-сессию БД и закрывает её после завершения запроса.
+    """Открывает async-сессию БД, коммитит при успехе и откатывает при ошибке.
+
+    Транзакция привязана к жизни запроса: один HTTP-запрос — одна сессия —
+    один коммит. Доменные сервисы flush-ят свои изменения внутри запроса, а
+    окончательная фиксация происходит здесь после возврата из обработчика.
 
     Yields:
         AsyncSession: Активная сессия SQLAlchemy.
     """
     async with async_session_maker() as session:
-        yield session
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
+        else:
+            await session.commit()

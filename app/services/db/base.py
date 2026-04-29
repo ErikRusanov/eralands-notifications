@@ -14,6 +14,7 @@ Pydantic-схем, тех же, что используются в API-слое.
 должен вызывающий код, обычно через зависимость сессии.
 """
 
+import uuid
 from typing import ClassVar, Generic, TypeVar
 
 from pydantic import BaseModel as PydanticModel
@@ -41,6 +42,28 @@ class BaseDBService(Generic[ModelT]):
             session: Активная ``AsyncSession`` SQLAlchemy.
         """
         self.session = session
+
+    async def get(self, id_: uuid.UUID) -> ModelT | None:
+        """Возвращает объект по primary key или ``None``, если такого нет.
+
+        Аргументы:
+            id_: Идентификатор записи.
+        """
+        return await self.session.get(self.model, id_)
+
+    async def create(self, data: PydanticModel) -> ModelT:
+        """Создаёт новый объект из данных схемы и flush-ит сессию.
+
+        Аргументы:
+            data: Pydantic-схема со всеми обязательными полями модели.
+
+        Возвращает:
+            Созданный ORM-объект, привязанный к сессии.
+        """
+        instance = self.model(**data.model_dump())
+        self.session.add(instance)
+        await self.session.flush()
+        return instance
 
     async def get_or_create(
         self,

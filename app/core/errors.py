@@ -8,6 +8,18 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.schemas import ErrorResponse
+from app.services.domain import (
+    AuthError,
+    ConflictError,
+    DomainError,
+    NotFoundError,
+)
+
+_DOMAIN_STATUS_MAP: dict[type[DomainError], int] = {
+    AuthError: http_status.HTTP_401_UNAUTHORIZED,
+    NotFoundError: http_status.HTTP_404_NOT_FOUND,
+    ConflictError: http_status.HTTP_409_CONFLICT,
+}
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +70,18 @@ async def _validation_exception_handler(
     )
 
 
+async def _domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
+    """Маппит доменное исключение в HTTP-код по таблице ``_DOMAIN_STATUS_MAP``.
+
+    Неизвестные подклассы ``DomainError`` фолбечат на 400.
+    """
+    status_code = _DOMAIN_STATUS_MAP.get(type(exc), http_status.HTTP_400_BAD_REQUEST)
+    return JSONResponse(
+        status_code=status_code,
+        content=ErrorResponse(detail=str(exc)).model_dump(),
+    )
+
+
 async def _unhandled_exception_handler(
     request: Request, exc: Exception
 ) -> JSONResponse:
@@ -93,4 +117,5 @@ def register_exception_handlers(app: FastAPI) -> None:
     """
     app.add_exception_handler(HTTPException, _http_exception_handler)
     app.add_exception_handler(RequestValidationError, _validation_exception_handler)
+    app.add_exception_handler(DomainError, _domain_error_handler)
     app.add_exception_handler(Exception, _unhandled_exception_handler)
