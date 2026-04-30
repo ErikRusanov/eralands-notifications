@@ -22,6 +22,11 @@ pytest = "^8.3.0"
 pytest-asyncio = "^0.24.0"
 httpx = "^0.28.0"
 
+# Группа admin — временный CLI-костыль (см. scripts/admin/). Снимается
+# вместе с папкой scripts/admin и admin-целями в Makefile.
+[tool.poetry.group.admin.dependencies]
+questionary = "^2.0.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

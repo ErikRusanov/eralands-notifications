@@ -1,8 +1,16 @@
-.PHONY: setup format run update migration migrate db-up db-down run-vpn test
+.PHONY: setup format run update migration migrate db-up db-down run-vpn test \
+        admin provision-landing
 
 VPN_HOST ?= root@89.19.213.102
 VPN_REMOTE_PORT ?= 8000
 VPN_LOCAL_PORT ?= 8000
+
+# Admin CLI (scripts/admin/). URL и KEY можно переопределить из cli:
+#   make provision-landing URL=https://api.example.com KEY=secret
+URL ?= http://localhost:8000
+KEY ?=
+ADMIN_RUN = ADMIN_URL=$(URL) $(if $(strip $(KEY)),ADMIN_KEY=$(KEY)) \
+            poetry run python -m scripts.admin
 
 setup:
 	@if [ ! -f .env ]; then \
@@ -47,3 +55,12 @@ migrate:
 
 test: db-up
 	poetry run pytest $(args)
+
+# --- Admin CLI костыли (scripts/admin/) ----------------------------------
+# Передать произвольную команду: `make admin args="provision-landing"`.
+admin:
+	@$(ADMIN_RUN) $(args)
+
+# Пайплайн: клиент (выбор/создание) -> лендинг -> код привязки.
+provision-landing:
+	@$(ADMIN_RUN) provision-landing
