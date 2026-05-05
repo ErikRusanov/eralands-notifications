@@ -1,5 +1,5 @@
 .PHONY: setup format run update migration migrate db-up db-down run-vpn test \
-        admin provision-landing
+        admin provision-landing deploy docker-build
 
 VPN_HOST ?= root@89.19.213.102
 VPN_REMOTE_PORT ?= 8000
@@ -64,3 +64,13 @@ admin:
 # Пайплайн: клиент (выбор/создание) -> лендинг -> код привязки.
 provision-landing:
 	@$(ADMIN_RUN) provision-landing
+
+# --- Деплой -------------------------------------------------------------
+# Полный пайплайн: build -> save -> scp -> docker load -> compose up ->
+# alembic upgrade -> health check. См. scripts/deploy/__main__.py.
+deploy:
+	poetry run python -m scripts.deploy
+
+# Локальный билд прод-образа без переноса на сервер.
+docker-build:
+	docker build -t eralands-notifications:latest .
